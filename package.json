@@ -1,0 +1,39 @@
+{
+  "name": "sound-tracing-js-demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Public React and Three.js demo shell for Sound-tracing.js with a protected vendor runtime boundary.",
+  "scripts": {
+    "dev": "vite",
+    "preview": "vite preview --host 127.0.0.1",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run && node scripts/guard-private-runtime.mjs",
+    "test:e2e": "playwright test",
+    "build": "tsc -p tsconfig.json && vite build && node scripts/guard-private-runtime.mjs",
+    "build:pages": "tsc -p tsconfig.json && vite build --mode pages && node scripts/guard-private-runtime.mjs --dist",
+    "check:private": "node scripts/guard-private-runtime.mjs",
+    "sdk:sync-local": "node scripts/sync-local-soundtrace-sdk.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "three": "^0.160.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.1",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@types/three": "^0.160.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

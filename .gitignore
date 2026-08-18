@@ -1,0 +1,31 @@
+node_modules/
+dist/
+coverage/
+playwright-report/
+test-results/
+.vite/
+.env*.local
+vendor*/
+
+# Local licensed SDK handoff archives.
+vendor_sound-tracing_sdk*.zip
+vendor_sound-tracing_sdk*/
+Sound-tracing-runtime*.zip
+sound-tracing-itchio*.zip
+dist*.zip
+
+# Licensed Sound-tracing.js runtime files may be placed here locally, but must
+# not be committed to the public demo repository.
+public/vendor/sound-tracing/*
+!public/vendor/sound-tracing/README.md
+!public/vendor/sound-tracing/runtime-manifest.json
+vendor/sound-tracing/*
+
+# Proprietary runtime artifacts are explicitly forbidden in this public repo.
+*.wasm
+*.dll
+*.so
+*.dylib
+*.lib
+*.a
+vendor/sound-tracing.zip
