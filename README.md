@@ -27,10 +27,10 @@ The production acoustic engine, optimized WASM binaries, proprietary material da
 
 ## Demo
 
-- **Live Demo:** [https://exarionai.github.io/Sound-tracing/](https://exarionai.github.io/Sound-tracing/)
-- **Runtime Capability:** [Open demo](https://exarionai.github.io/Sound-tracing/#/examples/capability)
-- **Shoe-box Room:** [Open demo](https://exarionai.github.io/Sound-tracing/#/examples/shoebox)
-- **Multi-room Occlusion:** [Open demo](https://exarionai.github.io/Sound-tracing/#/examples/multiroom)
+- **Live Demo:** [https://exarion.ai/demos/sound-tracing/](https://exarion.ai/demos/sound-tracing/)
+- **Runtime Capability:** [Open demo](https://exarion.ai/demos/sound-tracing/#/examples/capability)
+- **Shoe-box Room:** [Open demo](https://exarion.ai/demos/sound-tracing/#/examples/shoebox)
+- **Multi-room Occlusion:** [Open demo](https://exarion.ai/demos/sound-tracing/#/examples/multiroom)
 
 ### Recommended Browser
 
