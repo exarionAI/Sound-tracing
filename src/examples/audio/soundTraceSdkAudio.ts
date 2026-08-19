@@ -27,7 +27,7 @@ const ROOM_W = 8;
 const ROOM_H = 4;
 const ROOM_D = 8;
 const MULTIROOM_RENDER_CHANNELS = 2;
-const MULTIROOM_PACKED_SOURCE_CHANNELS = 1;
+const MULTIROOM_SOURCE_CHANNELS = 1;
 const WEB_AUDIO_COMPARE_GAIN = 0.5;
 const INWARD_TRIS = [
   0, 4, 2, 4, 6, 2,
@@ -69,8 +69,7 @@ interface MultiroomPlaybackGraph {
   readonly starts: AudioBufferSourceNode[];
   readonly gains: Map<string, GainNode>;
   readonly filters: Map<string, BiquadFilterNode>;
-  readonly merger: ChannelMergerNode;
-  readonly mixerWorklet: AudioWorkletNode;
+  readonly worklets: AudioWorkletNode[];
   readonly sdkGain: GainNode;
   readonly webAudioGain: GainNode;
 }
@@ -177,10 +176,6 @@ export async function createMultiroomSdkAudioSession(options: {
   let graph: MultiroomPlaybackGraph | null = null;
 
   try {
-    if (!sound.listener.native || !sound.createMixerWorkletNode) {
-      throw new Error('SDK mixer worklet is unavailable for this backend.');
-    }
-
     sound.listener.setPose({
       position: [0, 0.24, 0],
       orientation: { x: 0, y: 0, z: -1, w: 0 },
@@ -201,7 +196,7 @@ export async function createMultiroomSdkAudioSession(options: {
       sources.set(item.id, source);
     }
 
-    graph = await playPackedMultiroomTracks(
+    graph = await playMultiroomTracks(
       audioContext,
       sound,
       sources,
@@ -254,8 +249,7 @@ export async function createMultiroomSdkAudioSession(options: {
         }
         source.disconnect();
       });
-      graph?.mixerWorklet.disconnect();
-      graph?.merger.disconnect();
+      graph?.worklets.forEach((worklet) => worklet.disconnect());
       graph?.sdkGain.disconnect();
       graph?.webAudioGain.disconnect();
       for (const gain of graph?.gains.values() ?? []) gain.disconnect();
@@ -266,7 +260,12 @@ export async function createMultiroomSdkAudioSession(options: {
   };
 }
 
-async function playPackedMultiroomTracks(
+// One native AudioWorklet per source. The SDK used to expose a single packed
+// mixer node for this (`createMixerWorkletNode`), which took every source's
+// audio on one discrete-channel merger; it was removed in SDK 0.7.0 with no
+// replacement, and the per-source `play()` path already reuses the session's
+// single worklet bootstrap, so the extra nodes are cheap.
+async function playMultiroomTracks(
   audioContext: AudioContext,
   sound: SoundTraceFacadeLike,
   sources: Map<string, SoundTraceSourceLike>,
@@ -274,13 +273,9 @@ async function playPackedMultiroomTracks(
   tracks: Record<string, string>,
   renderMode: AudioRenderMode,
 ): Promise<MultiroomPlaybackGraph> {
-  if (!sound.listener.native || !sound.createMixerWorkletNode) {
-    throw new Error('SDK mixer worklet is unavailable.');
-  }
-
   const orderedSources = mix.sources.map((item) => {
     const source = sources.get(item.id);
-    if (!source?.native) throw new Error(`SDK source native handle missing: ${item.id}`);
+    if (!source) throw new Error(`SDK source missing: ${item.id}`);
     return { item, source };
   });
   const buffers = await Promise.all(orderedSources.map(({ item }) => decodeMixerInputTrack(
@@ -290,19 +285,12 @@ async function playPackedMultiroomTracks(
   const starts: AudioBufferSourceNode[] = [];
   const gains = new Map<string, GainNode>();
   const filters = new Map<string, BiquadFilterNode>();
+  const worklets: AudioWorkletNode[] = [];
   const sdkGain = audioContext.createGain();
   const webAudioGain = audioContext.createGain();
   setOutputRenderMode(audioContext, { sdkGain, webAudioGain }, renderMode, true);
 
-  const mixerWorklet = await withTimeout(sound.createMixerWorkletNode(
-    sound.listener.native,
-    orderedSources.map(({ source }) => source.native),
-    MULTIROOM_RENDER_CHANNELS,
-  ), 6000, 'Sound-tracing.js mixer worklet creation timed out.');
-  const merger = audioContext.createChannelMerger(orderedSources.length);
-  merger.channelInterpretation = 'discrete';
-
-  orderedSources.forEach(({ item }, sourceIndex) => {
+  for (const [sourceIndex, { item, source }] of orderedSources.entries()) {
     const bufferSource = audioContext.createBufferSource();
     const filter = audioContext.createBiquadFilter();
     const gain = audioContext.createGain();
@@ -311,22 +299,31 @@ async function playPackedMultiroomTracks(
     bufferSource.loop = true;
     filter.type = 'lowpass';
     filter.frequency.value = item.lowpassHz;
-    filter.channelCount = MULTIROOM_PACKED_SOURCE_CHANNELS;
+    filter.channelCount = MULTIROOM_SOURCE_CHANNELS;
     filter.channelCountMode = 'explicit';
     filter.channelInterpretation = 'discrete';
     gain.gain.value = item.gain * 0.9;
-    gain.channelCount = MULTIROOM_PACKED_SOURCE_CHANNELS;
+    gain.channelCount = MULTIROOM_SOURCE_CHANNELS;
     gain.channelCountMode = 'explicit';
     gain.channelInterpretation = 'discrete';
 
-    bufferSource.connect(filter).connect(gain).connect(merger, 0, sourceIndex);
+    bufferSource.connect(filter).connect(gain);
     gain.connect(webAudioGain);
+
+    // play() wires gain -> worklet itself; the output side stays ours.
+    const worklet = await withTimeout(
+      source.play(gain, MULTIROOM_RENDER_CHANNELS),
+      6000,
+      `Sound-tracing.js worklet creation timed out for ${item.id}.`,
+    );
+    worklet.connect(sound.output);
+
+    worklets.push(worklet);
     starts.push(bufferSource);
     gains.set(item.id, gain);
     filters.set(item.id, filter);
-  });
+  }
 
-  merger.connect(mixerWorklet).connect(sound.output);
   sound.output.connect(sdkGain).connect(audioContext.destination);
   webAudioGain.connect(audioContext.destination);
 
@@ -337,8 +334,7 @@ async function playPackedMultiroomTracks(
     starts,
     gains,
     filters,
-    merger,
-    mixerWorklet,
+    worklets,
     sdkGain,
     webAudioGain,
   };
@@ -350,7 +346,7 @@ async function decodeMixerInputTrack(
 ): Promise<AudioBuffer> {
   const sourceBuffer = await decodeTrack(audioContext, audioUrl);
   const inputBuffer = audioContext.createBuffer(
-    MULTIROOM_PACKED_SOURCE_CHANNELS,
+    MULTIROOM_SOURCE_CHANNELS,
     sourceBuffer.length,
     sourceBuffer.sampleRate,
   );
@@ -456,13 +452,12 @@ async function createSoundTraceWorld(
     const executionMode = backendMode === 'mt' ? undefined : option.sdkMode;
     sound = await sdk.SoundTrace.create(audioContext, {
       ...(executionMode === undefined ? {} : { mode: executionMode }),
-      thread: backendMode === 'mt' ? 'mt' : backendMode === 'gpu' ? 'st' : undefined,
+      thread: backendMode === 'mt' ? 'mt' : undefined,
       coordinateBasis: {
         right: [-1, 0, 0],
         up: [0, 1, 0],
         forward: [0, 0, -1],
       },
-      autoLoadMaterials: backendMode !== 'mt',
       quality: qualityPreset,
     });
 

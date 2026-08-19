@@ -49,8 +49,8 @@ test.describe('demo routes', () => {
     const waterSurface = page.getByTestId('room-material-waterSurface');
     await expect(waterSurface).toContainText('Water Surface');
 
-    await page.getByTestId('shoebox-backend-mode').selectOption('gpu');
-    await expect(page.getByTestId('shoebox-backend-metric')).toContainText('WebGPU');
+    await page.getByTestId('shoebox-backend-mode').selectOption('mt');
+    await expect(page.getByTestId('shoebox-backend-metric')).toContainText('Multi Thread');
     await page.getByTestId('shoebox-quality-preset').selectOption('quality');
     await expect(page.getByTestId('shoebox-quality-metric')).toContainText('Quality');
   });

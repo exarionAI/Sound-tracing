@@ -136,10 +136,6 @@ export function CapabilityCheck(): JSX.Element {
               label="Multi Thread"
               enabled={Boolean(backendAvailability?.multiThread)}
             />
-            <CapabilityPill
-              label="WebGPU"
-              enabled={Boolean(backendAvailability?.webgpu)}
-            />
           </div>
           <dl className="metric-list compact">
             <Metric
@@ -148,9 +144,9 @@ export function CapabilityCheck(): JSX.Element {
               tone={backendAvailability?.multiThread ? 'ok' : 'warn'}
             />
             <Metric
-              label="WebGPU API"
-              value={validation?.capabilities.webgpu ? 'navigator.gpu available' : 'navigator.gpu unavailable'}
-              tone={validation?.capabilities.webgpu ? 'ok' : 'warn'}
+              label="GPU backend"
+              value="Not included in this build (CPU-only runtime)"
+              tone="warn"
             />
           </dl>
         </section>

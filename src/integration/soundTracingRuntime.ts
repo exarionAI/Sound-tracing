@@ -4,7 +4,7 @@ export const SOUND_TRACING_PACKAGE_NAME = '@exarionai/soundtrace.js';
 export const SOUND_TRACING_DISPLAY_NAME = 'Sound-tracing.js';
 
 export type RuntimeMode = 'licensed' | 'stub';
-export type SoundTracingBackendMode = 'st' | 'mt' | 'gpu';
+export type SoundTracingBackendMode = 'st' | 'mt';
 export type SoundTracingQualityPreset = 'fast' | 'middle' | 'quality';
 export type RoomId = 'north' | 'east' | 'south' | 'west';
 export type DoorId = RoomId;
@@ -12,12 +12,11 @@ export type DoorId = RoomId;
 export const SOUND_TRACING_BACKEND_OPTIONS: Array<{
   value: SoundTracingBackendMode;
   label: string;
-  sdkMode: 'single_thread' | 'multi_thread' | 'gpu';
+  sdkMode: 'single_thread' | 'multi_thread';
   sdkThread: 'st' | 'mt';
 }> = [
   { value: 'st', label: 'Single Thread', sdkMode: 'single_thread', sdkThread: 'st' },
   { value: 'mt', label: 'Multi Thread', sdkMode: 'multi_thread', sdkThread: 'mt' },
-  { value: 'gpu', label: 'WebGPU', sdkMode: 'gpu', sdkThread: 'st' },
 ];
 
 export const SOUND_TRACING_QUALITY_OPTIONS: Array<{
@@ -56,7 +55,6 @@ export interface RuntimeValidation {
 export interface BackendAvailability {
   singleThread: boolean;
   multiThread: boolean;
-  webgpu: boolean;
   multiThreadRequirements: {
     sharedArrayBuffer: boolean;
     crossOriginIsolated: boolean;
@@ -154,11 +152,6 @@ export interface SoundTraceFacadeLike {
     gain?: number;
     paths?: Record<string, boolean>;
   }): SoundTraceSourceLike;
-  createMixerWorkletNode?(
-    listener: unknown,
-    sources: readonly unknown[],
-    channels?: number,
-  ): Promise<AudioWorkletNode>;
   update(dt?: number): Promise<number>;
   dispose(): void;
 }
@@ -422,7 +415,6 @@ export function detectBackendAvailability(capabilities: BrowserCapabilities): Ba
   return {
     singleThread: capabilities.webAssembly && capabilities.audioContext && capabilities.audioWorklet,
     multiThread: Object.values(multiThreadRequirements).every(Boolean),
-    webgpu: capabilities.webgpu && capabilities.webAssembly && capabilities.audioContext && capabilities.audioWorklet,
     multiThreadRequirements,
   };
 }
@@ -444,7 +436,7 @@ function supportsWasmSimd(): boolean {
     0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00,
     0x01, 0x05, 0x01, 0x60, 0x00, 0x01, 0x7b,
     0x03, 0x02, 0x01, 0x00,
-    0x0a, 0x17, 0x01, 0x15, 0x00, 0xfd, 0x0c,
+    0x0a, 0x16, 0x01, 0x14, 0x00, 0xfd, 0x0c,
     0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00,
